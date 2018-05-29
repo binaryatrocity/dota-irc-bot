@@ -1,11 +1,12 @@
 from ircutils import bot, events, format
+import requests
 import simplejson as json
 import urllib2, random, re
 import HTMLParser
 from collections import deque
 
 class DotaMatch:
-    api_key=""
+    api_key="4CEC40C492B1AB15EEBA07681E6EDBBD"
     hero_data = {}
 
     def __init__(self, channel, user, command, params):
@@ -169,6 +170,8 @@ class DoobBot(bot.SimpleBot):
             self.do_getweather(channel, user, params)
         elif command == "!REDDITNEWS":
             self.do_getnews(channel, user, params)
+        elif command == "!OW":
+            self.do_overwatch(channel, user, params)
         elif command == "!ABOUT":
             self.send_message(channel, "I am DotaBot, I bring info about Dota2 Matches. Ask for a !match. See !help for more.")
         elif command == "!HELP":
@@ -316,9 +319,50 @@ class DoobBot(bot.SimpleBot):
             notice = "Rolls for {}: {!s}. Total of {}".format(user, rolls, sum(rolls))
             self.send_message(channel, notice)
 
+    def do_overwatch(self, channel, user, params):
+        ow_url = "https://owapi.net/api/v1/u"
+        battletag = params[0]
+        battletag = battletag.replace('#', '-')
+        print params
+
+        try:
+            print '1'
+            if params[1].upper() == 'STATS':
+                api_url = "{}/{}/stats".format(ow_url, battletag)
+                #data = json.load(urllib2.build_opener(urllib2.HTTPSHandler()).open(urllib2.Request(api_url)))
+                data = requests.get(api_url)
+                sd = data.json()['overall_stats']
+                message = u"{}'s Overwatch Stats: Lvl {} - {} Games ({}W/{}L) for {}% win rate.".format(
+                        user, sd['level'], sd['games'], sd['wins'], sd['losses'], sd['win_rate'])
+            elif params[1].upper() == 'HEROES':
+                print '2'
+                api_url = "{}/{}/heroes".format(ow_url, battletag)
+                data = json.load(urllib2.build_opener(urllib2.HTTPSHandler()).open(urllib2.Request(api_url)))
+                print '3'
+                sd = data['heroes']
+                print '4'
+                import pudb; pudb
+                message = u"{}'s Overwatch Heroes:\r \
+                    {} [{} games, {} kda, {} winrate]\r \
+                    {} [{} games, {} kda, {} winrate]\r \
+                    {} [{} games, {} kda, {} winrate]".format(
+                            user,
+                            sd[0]['name'], sd[0]['games'], sd[0]['kpd'], sd[0]['winrate'],
+                            sd[1]['name'], sd[1]['games'], sd[1]['kpd'], sd[1]['winrate'],
+                            sd[2]['name'], sd[2]['games'], sd[2]['kpd'], sd[2]['winrate']
+                )
+        except IndexError as e:
+            message = '!ow [battletag] [stats/heroes]'
+            print e
+
+        # Send data to channel
+        self.send_message(channel, message.encode('ascii', 'replace'))
+        print "message sent"
+
+
 # Create a new bot, and run it!
 if __name__ == "__main__":
-    doob = DoobBot("DotaBot")
+    doob = DoobBot("MatchBot")
     init_match = DotaMatch('#atr0phy', 'SYSTEM', 'START', 'INIT')
     init_match.get_hero_values()
     doob.connect("irc.oftc.net", channel=['#dotanoobs', '#digital-deception', '#atr0phy'])
